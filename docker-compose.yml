@@ -2,7 +2,7 @@ version: '3'
 services:
   dictation-buddy:
     container_name: dictation-buddy
-    image: nsu_dictation-buddy:latest
+    build: .
     ports:
       - "8501:8501"
     volumes:
