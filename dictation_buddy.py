@@ -1,7 +1,17 @@
 import streamlit as st
+import re
 import os
 from pydub import AudioSegment, silence
 import base64
+
+def natural_sort_key(s):
+    """
+    Splits the string into text and numbers so they sort naturally.
+    Example: 'p5-d10' will come after 'p5-d2' instead of before it.
+    """
+    return [int(text) if text.isdigit() else text.lower()
+            for text in re.split(r'(\d+)', s)]
+
 
 # --- CONFIGURATION ---
 AUDIO_DIR = "audio_files"  # Directory where your MP3/MP4s are
@@ -54,7 +64,8 @@ if not os.path.exists(AUDIO_DIR):
     st.error(f"Folder '{AUDIO_DIR}' not found!")
     st.stop()
 
-files = sorted([f for f in os.listdir(AUDIO_DIR) if f.endswith(('.mp3', '.mp4', '.m4a'))])
+raw_files = [f for f in os.listdir(AUDIO_DIR) if f.endswith(('.mp3', '.mp4', '.m4a'))]
+files = sorted(raw_files, key=natural_sort_key)
 selected_file = st.sidebar.selectbox("Select Page/File", files)
 
 if selected_file:
