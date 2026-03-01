@@ -25,5 +25,5 @@ RUN mkdir -p audio_files
 EXPOSE 8501
 
 # Run the application
-CMD ["streamlit", "run", "dictation_buddy.py", "--server.port=8501", "--server.address=0.0.0.0"]
+CMD ["streamlit", "run", "dictation_buddy.py", "--server.port=8501", "--server.address=0.0.0.0", "--logger.level=debug", "--browser.gatherUsageStats=false"]
 

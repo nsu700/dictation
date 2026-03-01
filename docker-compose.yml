@@ -1,8 +1,10 @@
 version: '3'
 services:
   dictation-buddy:
+    build:
+      context: .
+      dockerfile: ./Dockerfile
     container_name: dictation-buddy
-    build: .
     ports:
       - "8501:8501"
     volumes:

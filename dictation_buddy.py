@@ -68,10 +68,12 @@ if selected_file:
     # 3. Process Audio
     with st.spinner("Analyzing audio sentences..."):
         sentence_ranges, total_duration = load_audio_ranges(file_path, min_len, thresh)
+        
+    # --- DEBUGGING LOGS ---
+    print(f"DEBUG (Backend): Processing file {file_path}. Duration: {total_duration}ms")
+    # ----------------------
     
     # 4. Custom Audio Player (JavaScript)
-    # We embed a custom HTML player that allows playing specific ranges
-    
     # Convert audio to base64 for embedding (works for local hosting)
     with open(file_path, "rb") as f:
         audio_bytes = f.read()
@@ -79,37 +81,14 @@ if selected_file:
         ext = os.path.splitext(selected_file)[1].replace('.', '')
         mime = f"audio/{ext}" if ext != 'mp3' else 'audio/mpeg'
 
-    # The HTML/JS Player
+    # FIX: Create a unique ID for the audio player based on the filename
+    # This prevents the browser from caching the old audio element
+    safe_filename = "".join([c if c.isalnum() else "_" for c in selected_file])
+    player_id = f"audio_player_{safe_filename}"
+
+    # FIX: Move the 'src' directly into the <audio> tag instead of using a <source> tag.
     player_html = f"""
-    <audio id="main-audio" controls style="width: 100%;">
-        <source src="data:{mime};base64,{audio_b64}" type="{mime}">
-    </audio>
-    
-    <script>
-        var audio = document.getElementById('main-audio');
-        
-        function playRange(startMs, endMs) {{
-            audio.currentTime = startMs / 1000;
-            audio.play();
-            
-            // Stop logic
-            var stopTime = endMs / 1000;
-            
-            // Remove existing listener to avoid stacking
-            if (window.checkTime) {{
-                audio.removeEventListener('timeupdate', window.checkTime);
-            }}
-            
-            window.checkTime = function() {{
-                if (audio.currentTime >= stopTime) {{
-                    audio.pause();
-                    audio.removeEventListener('timeupdate', window.checkTime);
-                }}
-            }};
-            
-            audio.addEventListener('timeupdate', window.checkTime);
-        }}
-    </script>
+    <audio id="{player_id}" src="data:{mime};base64,{audio_b64}" controls style="width: 100%;"></audio>
     """
     
     st.markdown(player_html, unsafe_allow_html=True)
@@ -132,20 +111,32 @@ if selected_file:
     for i, (start, end) in enumerate(sentence_ranges):
         col = cols[i % 3]
         with col:
-            # We use a trick: The button triggers a re-run, but we want JS to run.
-            # Streamlit buttons are server-side. To control client-side audio seamlessly
-            # is tricky. 
-            # BEST APPROACH for simple dictation: Generate HTML buttons that call the JS directly.
-            
             duration_sec = (end - start) / 1000
             
+            # FIX: Update the JavaScript to target the new dynamic 'player_id'.
+            # Also improved the event listener logic so it cleans itself up properly.
             btn_html = f"""
-            <button onclick="parent.document.getElementById('main-audio').currentTime={start/1000}; parent.document.getElementById('main-audio').play(); 
-                             var stop = {end/1000}; 
-                             var aud = parent.document.getElementById('main-audio');
-                             var func = function() {{ if(aud.currentTime >= stop) {{ aud.pause(); aud.removeEventListener('timeupdate', func); }} }};
-                             aud.addEventListener('timeupdate', func);"
-                    style="
+            <button onclick="
+                    var aud = parent.document.getElementById('{player_id}');
+                    aud.currentTime = {start/1000}; 
+                    aud.play(); 
+                    
+                    var stop = {end/1000}; 
+                    
+                    // Clear previous listener if a user clicks buttons too fast
+                    if (aud.windowFunc) {{
+                        aud.removeEventListener('timeupdate', aud.windowFunc);
+                    }}
+                    
+                    aud.windowFunc = function() {{ 
+                        if(aud.currentTime >= stop) {{ 
+                            aud.pause(); 
+                            aud.removeEventListener('timeupdate', aud.windowFunc); 
+                        }} 
+                    }};
+                    aud.addEventListener('timeupdate', aud.windowFunc);
+                "
+                style="
                     background-color: #f0f2f6; border: 1px solid #d1d5db; 
                     border-radius: 8px; padding: 15px; margin: 5px; width: 100%;
                     cursor: pointer; font-size: 16px; font-weight: bold; color: #31333F;
@@ -155,5 +146,4 @@ if selected_file:
             </button>
             """
             st.components.v1.html(btn_html, height=80)
-
 
